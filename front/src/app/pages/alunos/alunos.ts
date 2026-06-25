@@ -47,7 +47,7 @@ import { AlunoFormService } from './aluno-form.service';
     </div>
 
     <!-- Tabela -->
-    <ui-table [columns]="columns" [data]="alunosEnriquecidos()" [loading]="loading()">
+    <ui-table [columns]="columns" [data]="alunosEnriquecidos()">
       <ng-template #rowActions let-row>
         <div class="flex gap-1">
           <ui-button icon="pi pi-pencil" [text]="true" severity="secondary" (clicked)="openEdit(row)" />
@@ -126,7 +126,6 @@ export class Alunos implements OnInit {
 
   alunos = signal<Aluno[]>([]);
   cursos = signal<Curso[]>([]);
-  loading = signal(false);
   saving = signal(false);
   dialogVisible = signal(false);
   editingId = signal<number | null>(null);
@@ -157,15 +156,8 @@ export class Alunos implements OnInit {
   }
 
   loadAlunos(): void {
-    this.loading.set(true);
     this.alunoService.getAll(this.searchTerm() || undefined).subscribe({
-      next: (data) => {
-        this.alunos.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-      },
+      next: (data) => this.alunos.set(data),
     });
   }
 

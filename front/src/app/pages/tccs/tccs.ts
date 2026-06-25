@@ -75,7 +75,7 @@ import { TccFormService } from './tcc-form.service';
     </div>
 
     <!-- Tabela -->
-    <ui-table [columns]="columns" [data]="tccsEnriquecidos()" [loading]="loading()">
+    <ui-table [columns]="columns" [data]="tccsEnriquecidos()">
       <ng-template #rowActions let-row>
         <div class="flex items-center gap-2">
           <ui-tag [status]="row.status" />
@@ -319,7 +319,6 @@ export class Tccs implements OnInit {
   tccs = signal<Tcc[]>([]);
   alunos = signal<Aluno[]>([]);
   professores = signal<Professor[]>([]);
-  loading = signal(false);
   saving = signal(false);
   dialogVisible = signal(false);
   editingId = signal<number | null>(null);
@@ -407,15 +406,8 @@ export class Tccs implements OnInit {
   }
 
   loadTccs(): void {
-    this.loading.set(true);
     this.tccService.getAll(this.searchTerm() || undefined).subscribe({
-      next: (data) => {
-        this.tccs.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-      },
+      next: (data) => this.tccs.set(data),
     });
   }
 

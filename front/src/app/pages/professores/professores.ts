@@ -47,7 +47,7 @@ import { ProfessorFormService } from './professor-form.service';
     </div>
 
     <!-- Tabela -->
-    <ui-table [columns]="columns" [data]="professoresEnriquecidos()" [loading]="loading()">
+    <ui-table [columns]="columns" [data]="professoresEnriquecidos()">
       <ng-template #rowActions let-row>
         <div class="flex gap-1">
           <ui-button icon="pi pi-pencil" [text]="true" severity="secondary" (clicked)="openEdit(row)" />
@@ -115,7 +115,6 @@ export class Professores implements OnInit {
 
   professores = signal<Professor[]>([]);
   departamentos = signal<Departamento[]>([]);
-  loading = signal(false);
   saving = signal(false);
   dialogVisible = signal(false);
   editingId = signal<number | null>(null);
@@ -145,15 +144,8 @@ export class Professores implements OnInit {
   }
 
   loadProfessores(): void {
-    this.loading.set(true);
     this.professorService.getAll(this.searchTerm() || undefined).subscribe({
-      next: (data) => {
-        this.professores.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-      },
+      next: (data) => this.professores.set(data),
     });
   }
 

@@ -37,8 +37,6 @@ interface RankItem {
       <p class="text-sm text-gray-500 mt-1">Visão geral do sistema de gestão de TCCs</p>
     </div>
 
-    @if (!loading()) {
-
       <!-- Linha 1: Totais gerais -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         @for (card of totalCards(); track card.label) {
@@ -209,8 +207,6 @@ interface RankItem {
         </div>
 
       </div>
-
-    }
   `,
 })
 export class DashboardPage implements OnInit {
@@ -219,7 +215,6 @@ export class DashboardPage implements OnInit {
   private professorService = inject(ProfessorService);
   private cursoService = inject(CursoService);
 
-  loading = signal(true);
   estatisticas = signal<TccEstatisticas | null>(null);
   tccs = signal<Tcc[]>([]);
   alunos = signal<Aluno[]>([]);
@@ -292,9 +287,8 @@ export class DashboardPage implements OnInit {
         this.alunos.set(alunos);
         this.professores.set(professores);
         this.totalCursos.set(cursos.length);
-        this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {},
     });
   }
 }
