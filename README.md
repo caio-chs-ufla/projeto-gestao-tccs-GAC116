@@ -55,7 +55,7 @@ Servicos:
 
 - Frontend: `http://127.0.0.1:4200/`
 - Backend: `http://127.0.0.1:8000/api/`
-- Postgres: porta `5432`
+- Postgres: servico interno `db:5432` na rede do Docker
 
 Para popular o banco em Docker:
 
