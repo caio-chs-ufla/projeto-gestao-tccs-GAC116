@@ -1,51 +1,54 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialog } from 'primeng/confirmdialog';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { MessageService } from 'primeng/api';
 import { Textarea } from 'primeng/textarea';
 import {
+  Aluno,
+  AlunoService,
+  Professor,
+  ProfessorService,
+  Tcc,
+  TccService,
+} from '../../core';
+import {
+  TableColumn,
   UiButton,
+  UiDialog,
+  UiFileUpload,
   UiInput,
   UiInputSearch,
   UiSelect,
   UiSelectSearch,
   UiTable,
-  UiDialog,
   UiTag,
-  UiFileUpload,
-  TableColumn,
 } from '../../shared';
-import { TccService, AlunoService, ProfessorService, Tcc, Aluno, Professor } from '../../core';
-import { TccFormService } from './tcc-form.service';
 import { environment } from '../../../environments/environment';
+import { TccFormService } from './tcc-form.service';
 
 @Component({
   selector: 'app-tccs',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
     FormsModule,
-    ConfirmDialog,
+    ReactiveFormsModule,
     Textarea,
     UiButton,
+    UiDialog,
+    UiFileUpload,
     UiInput,
     UiInputSearch,
     UiSelect,
     UiSelectSearch,
     UiTable,
-    UiDialog,
     UiTag,
-    UiFileUpload,
   ],
-  providers: [TccFormService, ConfirmationService],
+  providers: [TccFormService],
   template: `
-    <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-semibold text-gray-800">TCCs</h1>
       <ui-button label="Adicionar TCC" icon="pi pi-plus" (clicked)="openCreate()" />
     </div>
 
-    <!-- Filtros -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
       <ui-input-search
         placeholder="Buscar por título ou resumo..."
@@ -75,27 +78,22 @@ import { environment } from '../../../environments/environment';
       />
     </div>
 
-    <!-- Tabela -->
     <ui-table [columns]="columns" [data]="tccsEnriquecidos()">
       <ng-template #rowActions let-row>
         <div class="flex items-center gap-2">
           <ui-tag [status]="row.status" />
-          <ui-button icon="pi pi-pencil" [text]="true" severity="secondary" (clicked)="openEdit(row)" />
-          <ui-button icon="pi pi-trash" [text]="true" severity="danger" (clicked)="onDelete(row)" />
+          <ui-button icon="pi pi-sync" [text]="true" severity="secondary" (clicked)="openStatusDialog(row)" />
         </div>
       </ng-template>
     </ui-table>
 
-    <!-- Dialog create/edit -->
     <ui-dialog
-      [header]="editingId() ? 'Editar TCC' : 'Adicionar TCC'"
+      header="Adicionar TCC"
       [visible]="dialogVisible()"
       (visibleChange)="dialogVisible.set($event)"
       width="900px"
     >
       <form [formGroup]="formService.form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-        <!-- titulo: col-span-full -->
         <div class="flex flex-col gap-1 col-span-full">
           <label class="text-sm font-medium text-gray-700">
             Título <span class="text-red-500">*</span>
@@ -106,7 +104,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- resumo: col-span-full -->
         <div class="flex flex-col gap-1 col-span-full">
           <label class="text-sm font-medium text-gray-700">
             Resumo <span class="text-red-500">*</span>
@@ -123,18 +120,22 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- palavras_chave: col-span-full -->
         <div class="flex flex-col gap-1 col-span-full">
           <label class="text-sm font-medium text-gray-700">
             Palavras-chave <span class="text-red-500">*</span>
           </label>
-          <ui-input placeholder="Ex: machine learning, redes neurais, python" [formControl]="formService.form.controls.palavras_chave" />
-          @if (formService.form.controls.palavras_chave.invalid && formService.form.controls.palavras_chave.touched) {
+          <ui-input
+            placeholder="Ex: machine learning, redes neurais, python"
+            [formControl]="formService.form.controls.palavras_chave"
+          />
+          @if (
+            formService.form.controls.palavras_chave.invalid &&
+            formService.form.controls.palavras_chave.touched
+          ) {
             <small class="text-red-500">Campo obrigatório</small>
           }
         </div>
 
-        <!-- tipo -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             Tipo <span class="text-red-500">*</span>
@@ -149,7 +150,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- idioma -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             Idioma <span class="text-red-500">*</span>
@@ -164,22 +164,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- status -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-gray-700">
-            Status <span class="text-red-500">*</span>
-          </label>
-          <ui-select
-            [options]="statusOptions"
-            placeholder="Selecione o status"
-            [formControl]="formService.form.controls.status"
-          />
-          @if (formService.form.controls.status.invalid && formService.form.controls.status.touched) {
-            <small class="text-red-500">Campo obrigatório</small>
-          }
-        </div>
-
-        <!-- semestre_letivo_defesa (opcional) -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">Semestre de Defesa</label>
           <ui-select
@@ -190,17 +174,15 @@ import { environment } from '../../../environments/environment';
           />
         </div>
 
-        <!-- arquivo (opcional) -->
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-gray-700">Arquivo</label>
+          <label class="text-sm font-medium text-gray-700">Arquivo PDF</label>
           <ui-file-upload
-            accept=".pdf,.doc,.docx"
-            chooseLabel="Selecionar arquivo"
+            accept=".pdf"
+            chooseLabel="Selecionar PDF"
             [formControl]="formService.form.controls.arquivo"
           />
         </div>
 
-        <!-- aluno -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             Aluno <span class="text-red-500">*</span>
@@ -216,7 +198,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- orientador -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             Orientador <span class="text-red-500">*</span>
@@ -232,7 +213,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- coorientador (opcional) -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">Coorientador</label>
           <ui-select-search
@@ -244,7 +224,6 @@ import { environment } from '../../../environments/environment';
           />
         </div>
 
-        <!-- presidente -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             Presidente da Banca <span class="text-red-500">*</span>
@@ -260,7 +239,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- primeiro_membro -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             1º Membro da Banca <span class="text-red-500">*</span>
@@ -276,7 +254,6 @@ import { environment } from '../../../environments/environment';
           }
         </div>
 
-        <!-- segundo_membro -->
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-gray-700">
             2º Membro da Banca <span class="text-red-500">*</span>
@@ -291,10 +268,8 @@ import { environment } from '../../../environments/environment';
             <small class="text-red-500">Campo obrigatório</small>
           }
         </div>
-
       </form>
 
-      <!-- Footer do dialog -->
       <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200">
         <ui-button
           label="Cancelar"
@@ -306,7 +281,34 @@ import { environment } from '../../../environments/environment';
       </div>
     </ui-dialog>
 
-    <p-confirmdialog />
+    <ui-dialog
+      header="Alterar Status"
+      [visible]="statusDialogVisible()"
+      (visibleChange)="statusDialogVisible.set($event)"
+      width="420px"
+    >
+      <div class="flex flex-col gap-4">
+        <p class="text-sm text-gray-600">{{ statusTarget()?.titulo }}</p>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Status</label>
+          <ui-select
+            [options]="statusOptions"
+            placeholder="Selecione o status"
+            [(ngModel)]="statusValueModel"
+          />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200">
+        <ui-button
+          label="Cancelar"
+          severity="secondary"
+          [outlined]="true"
+          (clicked)="statusDialogVisible.set(false)"
+        />
+        <ui-button label="Salvar" [loading]="statusSaving()" (clicked)="onSaveStatus()" />
+      </div>
+    </ui-dialog>
   `,
 })
 export class Tccs implements OnInit {
@@ -314,7 +316,6 @@ export class Tccs implements OnInit {
   private alunoService = inject(AlunoService);
   private professorService = inject(ProfessorService);
   private messageService = inject(MessageService);
-  private confirmationService = inject(ConfirmationService);
   formService = inject(TccFormService);
 
   tccs = signal<Tcc[]>([]);
@@ -322,7 +323,10 @@ export class Tccs implements OnInit {
   professores = signal<Professor[]>([]);
   saving = signal(false);
   dialogVisible = signal(false);
-  editingId = signal<number | null>(null);
+  statusDialogVisible = signal(false);
+  statusSaving = signal(false);
+  statusTarget = signal<Tcc | null>(null);
+  statusValue = signal<string>('0');
 
   searchTerm = signal('');
   filtroStatus = signal<string | null>(null);
@@ -364,6 +368,9 @@ export class Tccs implements OnInit {
   get filtroIdiomaModel(): string | null { return this.filtroIdioma(); }
   set filtroIdiomaModel(v: string | null) { this.filtroIdioma.set(v); }
 
+  get statusValueModel(): string { return this.statusValue(); }
+  set statusValueModel(v: string) { this.statusValue.set(v); }
+
   tccsEnriquecidos = computed(() => {
     return this.tccs()
       .filter(t => {
@@ -402,14 +409,6 @@ export class Tccs implements OnInit {
     { field: 'arquivo_url', header: 'Arquivo', type: 'link', linkLabel: 'Abrir' },
   ];
 
-  private resolveArquivoUrl(arquivo: string | null): string | null {
-    if (!arquivo) return null;
-    if (/^https?:\/\//i.test(arquivo)) return arquivo;
-
-    const apiOrigin = new URL(environment.apiUrl).origin;
-    return arquivo.startsWith('/') ? `${apiOrigin}${arquivo}` : `${apiOrigin}/${arquivo}`;
-  }
-
   ngOnInit(): void {
     this.loadTccs();
     this.loadAlunos();
@@ -418,19 +417,19 @@ export class Tccs implements OnInit {
 
   loadTccs(): void {
     this.tccService.getAll(this.searchTerm() || undefined).subscribe({
-      next: (data) => this.tccs.set(data),
+      next: data => this.tccs.set(data),
     });
   }
 
   loadAlunos(): void {
     this.alunoService.getAll().subscribe({
-      next: (data) => this.alunos.set(data),
+      next: data => this.alunos.set(data),
     });
   }
 
   loadProfessores(): void {
     this.professorService.getAll().subscribe({
-      next: (data) => this.professores.set(data),
+      next: data => this.professores.set(data),
     });
   }
 
@@ -440,14 +439,7 @@ export class Tccs implements OnInit {
   }
 
   openCreate(): void {
-    this.editingId.set(null);
     this.formService.load();
-    this.dialogVisible.set(true);
-  }
-
-  openEdit(row: any): void {
-    this.editingId.set(row.id);
-    this.formService.load(row as Tcc);
     this.dialogVisible.set(true);
   }
 
@@ -458,7 +450,7 @@ export class Tccs implements OnInit {
     }
 
     this.saving.set(true);
-    this.formService.submit(this.editingId() ?? undefined).subscribe({
+    this.formService.submit().subscribe({
       next: () => {
         this.saving.set(false);
         this.dialogVisible.set(false);
@@ -466,7 +458,7 @@ export class Tccs implements OnInit {
         this.messageService.add({
           severity: 'success',
           summary: 'Sucesso',
-          detail: 'TCC salvo com sucesso!',
+          detail: 'TCC cadastrado com sucesso!',
         });
       },
       error: () => {
@@ -475,26 +467,39 @@ export class Tccs implements OnInit {
     });
   }
 
-  onDelete(row: any): void {
-    this.confirmationService.confirm({
-      message: `Deseja realmente excluir o TCC "${row.titulo}"?`,
-      header: 'Confirmar exclusão',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Excluir',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.tccService.delete(row.id).subscribe({
-          next: () => {
-            this.loadTccs();
-            this.messageService.add({
-              severity: 'success',
-              summary: 'Sucesso',
-              detail: 'TCC excluído com sucesso!',
-            });
-          },
+  openStatusDialog(row: Tcc): void {
+    this.statusTarget.set(row);
+    this.statusValue.set(row.status);
+    this.statusDialogVisible.set(true);
+  }
+
+  onSaveStatus(): void {
+    const target = this.statusTarget();
+    if (!target) return;
+
+    this.statusSaving.set(true);
+    this.tccService.patch(target.id, { status: this.statusValue() as Tcc['status'] }).subscribe({
+      next: () => {
+        this.statusSaving.set(false);
+        this.statusDialogVisible.set(false);
+        this.loadTccs();
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Sucesso',
+          detail: 'Status atualizado com sucesso!',
         });
       },
+      error: () => {
+        this.statusSaving.set(false);
+      },
     });
+  }
+
+  private resolveArquivoUrl(arquivo: string | null): string | null {
+    if (!arquivo) return null;
+    if (/^https?:\/\//i.test(arquivo)) return arquivo;
+
+    const apiOrigin = new URL(environment.apiUrl).origin;
+    return arquivo.startsWith('/') ? `${apiOrigin}${arquivo}` : `${apiOrigin}/${arquivo}`;
   }
 }
