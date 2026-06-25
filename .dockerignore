@@ -1,0 +1,12 @@
+.git
+.docs
+front/node_modules
+front/dist
+front/.angular
+back/projeto-gestao-tccs/__pycache__
+back/projeto-gestao-tccs/**/__pycache__
+back/projeto-gestao-tccs/db.sqlite3
+back/projeto-gestao-tccs/.venv
+back/projeto-gestao-tccs/venv
+back/projeto-gestao-tccs/media
+docker
