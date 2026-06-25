@@ -1,0 +1,12 @@
+export { LoadingService } from './services/loading.service';
+export { loadingInterceptor } from './interceptors/loading.interceptor';
+export { errorInterceptor } from './interceptors/error.interceptor';
+export { AppLoader } from './components/loader/loader';
+export { BaseApiService } from './api/base-api.service';
+export { UnidadeAcademicaService } from './api/unidade-academica.service';
+export { DepartamentoService } from './api/departamento.service';
+export { CursoService } from './api/curso.service';
+export { AlunoService } from './api/aluno.service';
+export { ProfessorService } from './api/professor.service';
+export { TccService } from './api/tcc.service';
+export * from './models';
