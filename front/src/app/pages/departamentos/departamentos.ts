@@ -25,7 +25,7 @@ import { TableColumn, UiInputSearch, UiTable } from '../../shared';
       />
     </div>
 
-    <ui-table [columns]="columns" [data]="departamentosEnriquecidos()" />
+    <ui-table [columns]="columns" [data]="filteredDepartamentos()" />
   `,
 })
 export class Departamentos implements OnInit {
@@ -34,6 +34,7 @@ export class Departamentos implements OnInit {
 
   departamentos = signal<Departamento[]>([]);
   unidades = signal<UnidadeAcademica[]>([]);
+  searchTerm = signal('');
   searchValue = '';
 
   departamentosEnriquecidos = computed(() =>
@@ -46,6 +47,17 @@ export class Departamentos implements OnInit {
       };
     })
   );
+
+  filteredDepartamentos = computed(() => {
+    const term = this.normalize(this.searchTerm());
+    if (!term) return this.departamentosEnriquecidos();
+
+    return this.departamentosEnriquecidos().filter(d =>
+      [d.nome, d.sigla, d.unidade_nome, d.unidade_sigla].some(value =>
+        this.normalize(value).includes(term)
+      )
+    );
+  });
 
   columns: TableColumn[] = [
     { field: 'nome', header: 'Nome', sortable: true },
@@ -60,11 +72,11 @@ export class Departamentos implements OnInit {
   }
 
   onSearch(term: string): void {
-    this.loadDepartamentos(term);
+    this.searchTerm.set(term);
   }
 
-  private loadDepartamentos(search?: string): void {
-    this.departamentoService.getAll(search || undefined).subscribe({
+  private loadDepartamentos(): void {
+    this.departamentoService.getAll().subscribe({
       next: data => this.departamentos.set(data),
     });
   }
@@ -73,5 +85,13 @@ export class Departamentos implements OnInit {
     this.unidadeAcademicaService.getAll().subscribe({
       next: data => this.unidades.set(data),
     });
+  }
+
+  private normalize(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 }

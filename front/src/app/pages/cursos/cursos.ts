@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CursoService, Curso } from '../../core';
 import { TableColumn, UiInputSearch, UiTable } from '../../shared';
@@ -20,13 +20,14 @@ import { TableColumn, UiInputSearch, UiTable } from '../../shared';
       />
     </div>
 
-    <ui-table [columns]="columns" [data]="cursos()" />
+    <ui-table [columns]="columns" [data]="filteredCursos()" />
   `,
 })
 export class Cursos implements OnInit {
   private cursoService = inject(CursoService);
 
   cursos = signal<Curso[]>([]);
+  searchTerm = signal('');
   searchValue = '';
 
   columns: TableColumn[] = [
@@ -40,12 +41,29 @@ export class Cursos implements OnInit {
   }
 
   onSearch(term: string): void {
-    this.loadCursos(term);
+    this.searchTerm.set(term);
   }
 
-  private loadCursos(search?: string): void {
-    this.cursoService.getAll(search || undefined).subscribe({
+  filteredCursos = computed(() => {
+    const term = this.normalize(this.searchTerm());
+    if (!term) return this.cursos();
+
+    return this.cursos().filter(c =>
+      [c.nome, c.sigla, c.codigo].some(value => this.normalize(value).includes(term))
+    );
+  });
+
+  private loadCursos(): void {
+    this.cursoService.getAll().subscribe({
       next: data => this.cursos.set(data),
     });
+  }
+
+  private normalize(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 }

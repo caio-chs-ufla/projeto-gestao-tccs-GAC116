@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UnidadeAcademica, UnidadeAcademicaService } from '../../core';
 import { TableColumn, UiInputSearch, UiTable } from '../../shared';
@@ -20,13 +20,14 @@ import { TableColumn, UiInputSearch, UiTable } from '../../shared';
       />
     </div>
 
-    <ui-table [columns]="columns" [data]="unidades()" />
+    <ui-table [columns]="columns" [data]="filteredUnidades()" />
   `,
 })
 export class UnidadesAcademicas implements OnInit {
   private unidadeAcademicaService = inject(UnidadeAcademicaService);
 
   unidades = signal<UnidadeAcademica[]>([]);
+  searchTerm = signal('');
   searchValue = '';
 
   columns: TableColumn[] = [
@@ -39,12 +40,29 @@ export class UnidadesAcademicas implements OnInit {
   }
 
   onSearch(term: string): void {
-    this.loadUnidades(term);
+    this.searchTerm.set(term);
   }
 
-  private loadUnidades(search?: string): void {
-    this.unidadeAcademicaService.getAll(search || undefined).subscribe({
+  filteredUnidades = computed(() => {
+    const term = this.normalize(this.searchTerm());
+    if (!term) return this.unidades();
+
+    return this.unidades().filter(u =>
+      [u.nome, u.sigla].some(value => this.normalize(value).includes(term))
+    );
+  });
+
+  private loadUnidades(): void {
+    this.unidadeAcademicaService.getAll().subscribe({
       next: data => this.unidades.set(data),
     });
+  }
+
+  private normalize(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 }
