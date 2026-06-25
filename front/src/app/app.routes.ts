@@ -1,9 +1,5 @@
 import { Routes } from '@angular/router';
 import { MainLayout } from './layout/main-layout/main-layout';
-import { DashboardPage } from './pages/dashboard/dashboard';
-import { Alunos } from './pages/alunos/alunos';
-import { Professores } from './pages/professores/professores';
-import { Tccs } from './pages/tccs/tccs';
 
 export const routes: Routes = [
   {
@@ -11,10 +7,34 @@ export const routes: Routes = [
     component: MainLayout,
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      { path: 'dashboard', component: DashboardPage },
-      { path: 'alunos', component: Alunos },
-      { path: 'professores', component: Professores },
-      { path: 'tccs', component: Tccs },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/dashboard/dashboard').then(m => m.DashboardPage),
+      },
+      {
+        path: 'alunos',
+        loadComponent: () => import('./pages/alunos/alunos').then(m => m.Alunos),
+      },
+      {
+        path: 'professores',
+        loadComponent: () => import('./pages/professores/professores').then(m => m.Professores),
+      },
+      {
+        path: 'cursos',
+        loadComponent: () => import('./pages/cursos/cursos').then(m => m.Cursos),
+      },
+      {
+        path: 'departamentos',
+        loadComponent: () => import('./pages/departamentos/departamentos').then(m => m.Departamentos),
+      },
+      {
+        path: 'unidades-academicas',
+        loadComponent: () => import('./pages/unidades-academicas/unidades-academicas').then(m => m.UnidadesAcademicas),
+      },
+      {
+        path: 'tccs',
+        loadComponent: () => import('./pages/tccs/tccs').then(m => m.Tccs),
+      },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },

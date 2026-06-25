@@ -17,6 +17,7 @@ import {
 } from '../../shared';
 import { TccService, AlunoService, ProfessorService, Tcc, Aluno, Professor } from '../../core';
 import { TccFormService } from './tcc-form.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-tccs',
@@ -379,6 +380,7 @@ export class Tccs implements OnInit {
         ...t,
         aluno_nome: this.alunos().find(a => a.id === t.aluno)?.nome ?? '—',
         orientador_nome: this.professores().find(p => p.id === t.orientador)?.nome ?? '—',
+        arquivo_url: this.resolveArquivoUrl(t.arquivo),
       }));
   });
 
@@ -397,7 +399,16 @@ export class Tccs implements OnInit {
     { field: 'orientador_nome', header: 'Orientador', sortable: true },
     { field: 'semestre_letivo_defesa', header: 'Semestre', sortable: true },
     { field: 'status_display', header: 'Status', sortable: true },
+    { field: 'arquivo_url', header: 'Arquivo', type: 'link', linkLabel: 'Abrir' },
   ];
+
+  private resolveArquivoUrl(arquivo: string | null): string | null {
+    if (!arquivo) return null;
+    if (/^https?:\/\//i.test(arquivo)) return arquivo;
+
+    const apiOrigin = new URL(environment.apiUrl).origin;
+    return arquivo.startsWith('/') ? `${apiOrigin}${arquivo}` : `${apiOrigin}/${arquivo}`;
+  }
 
   ngOnInit(): void {
     this.loadTccs();

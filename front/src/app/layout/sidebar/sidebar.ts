@@ -45,5 +45,8 @@ export class Sidebar {
     { path: 'tccs', label: 'TCCs', icon: 'pi pi-book' },
     { path: 'alunos', label: 'Alunos', icon: 'pi pi-users' },
     { path: 'professores', label: 'Professores', icon: 'pi pi-user' },
+    { path: 'cursos', label: 'Cursos', icon: 'pi pi-graduation-cap' },
+    { path: 'departamentos', label: 'Departamentos', icon: 'pi pi-building' },
+    { path: 'unidades-academicas', label: 'Unidades', icon: 'pi pi-sitemap' },
   ];
 }

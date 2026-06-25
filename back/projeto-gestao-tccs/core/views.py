@@ -11,14 +11,20 @@ from .serializers import (
 class UnidadeAcademicaViewSet(viewsets.ModelViewSet):
     queryset = UnidadeAcademica.objects.all()
     serializer_class = UnidadeAcademicaSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nome', 'sigla']
 
 class DepartamentoViewSet(viewsets.ModelViewSet):
     queryset = Departamento.objects.all()
     serializer_class = DepartamentoSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nome', 'sigla', 'unidade_academica__nome', 'unidade_academica__sigla']
 
 class CursoViewSet(viewsets.ModelViewSet):
     queryset = Curso.objects.all()
     serializer_class = CursoSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nome', 'sigla', 'codigo']
 
 class AlunoViewSet(viewsets.ModelViewSet):
     queryset = Aluno.objects.all()

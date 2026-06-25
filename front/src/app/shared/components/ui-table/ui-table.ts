@@ -6,6 +6,8 @@ export interface TableColumn {
   field: string;
   header: string;
   sortable?: boolean;
+  type?: 'text' | 'link';
+  linkLabel?: string;
 }
 
 @Component({
@@ -43,7 +45,25 @@ export interface TableColumn {
       <ng-template pTemplate="body" let-row let-columns="columns">
         <tr>
           @for (col of columns; track col.field) {
-            <td>{{ row[col.field] }}</td>
+            <td>
+              @if (col.type === 'link') {
+                @if (row[col.field]) {
+                  <a
+                    [href]="row[col.field]"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    <i class="pi pi-external-link text-xs"></i>
+                    {{ col.linkLabel ?? 'Abrir' }}
+                  </a>
+                } @else {
+                  <span class="text-gray-400">-</span>
+                }
+              } @else {
+                {{ row[col.field] ?? '-' }}
+              }
+            </td>
           }
           @if (rowActionsTemplate()) {
             <td class="text-center">
