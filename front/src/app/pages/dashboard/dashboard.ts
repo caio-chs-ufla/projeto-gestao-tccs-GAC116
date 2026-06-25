@@ -1,212 +1,232 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { ProgressBar } from 'primeng/progressbar';
-import { TccService, AlunoService, ProfessorService, CursoService } from '../../core';
-import { Tcc, Aluno, Professor, TccEstatisticas } from '../../core';
+import { Aluno, AlunoService, CursoService, Professor, ProfessorService, Tcc, TccEstatisticas, TccService } from '../../core';
 
 interface StatCard {
   label: string;
   value: number;
   icon: string;
+  detail: string;
   colorClass: string;
   bgClass: string;
 }
 
-interface StatusCard {
+interface BreakdownItem {
   label: string;
   value: number;
-  borderClass: string;
-  textClass: string;
+  percent: number;
+  colorClass: string;
   bgClass: string;
-  icon: string;
 }
 
 interface RankItem {
   nome: string;
   count: number;
+  percent: number;
 }
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ProgressBar, DecimalPipe],
+  imports: [ProgressBar, DecimalPipe, NgTemplateOutlet],
   template: `
-    <div class="mb-8">
-      <h1 class="text-2xl font-semibold text-gray-800">Dashboard</h1>
-      <p class="text-sm text-gray-500 mt-1">Visão geral do sistema de gestão de TCCs</p>
+    <div class="space-y-6">
+      <section class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-gray-800">Dashboard</h1>
+          <p class="text-sm text-gray-500 mt-1">Panorama acadêmico dos TCCs cadastrados</p>
+        </div>
+        <div class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
+          <i class="pi pi-database text-teal-500"></i>
+          Dados da API em tempo real
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        @for (card of totalCards(); track card.label) {
+          <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-gray-500">{{ card.label }}</p>
+                <p class="mt-2 text-3xl font-semibold text-gray-900">{{ card.value }}</p>
+              </div>
+              <span class="flex h-11 w-11 items-center justify-center rounded-lg" [class]="card.bgClass">
+                <i [class]="card.icon + ' text-lg ' + card.colorClass"></i>
+              </span>
+            </div>
+            <p class="mt-4 text-xs text-gray-500">{{ card.detail }}</p>
+          </article>
+        }
+      </section>
+
+      <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <article class="xl:col-span-2 bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-gray-800">Situação dos TCCs</h2>
+              <p class="text-sm text-gray-500 mt-1">Distribuição por andamento e resultado</p>
+            </div>
+            <div class="text-left sm:text-right">
+              <p class="text-sm text-gray-500">Taxa de aprovação</p>
+              <p class="text-3xl font-semibold text-green-600">{{ taxaAprovacao() }}%</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p-progressbar [value]="taxaAprovacao()" styleClass="h-2" [showValue]="false" />
+          </div>
+
+          <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            @for (item of statusBreakdown(); track item.label) {
+              <div class="rounded-lg border border-gray-100 p-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="h-2.5 w-2.5 rounded-full flex-shrink-0" [class]="item.bgClass"></span>
+                    <span class="text-sm font-medium text-gray-700 truncate">{{ item.label }}</span>
+                  </div>
+                  <span class="text-sm font-semibold text-gray-800">{{ item.value }}</span>
+                </div>
+                <div class="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div class="h-full rounded-full" [class]="item.bgClass" [style.width.%]="item.percent"></div>
+                </div>
+                <p class="mt-2 text-xs text-gray-400">{{ item.percent | number:'1.0-0' }}% do total</p>
+              </div>
+            }
+          </div>
+        </article>
+
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-base font-semibold text-gray-800">Saúde do Cadastro</h2>
+          <p class="text-sm text-gray-500 mt-1">Pendências úteis para apresentação e gestão</p>
+
+          <div class="mt-5 space-y-5">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-gray-700">Alunos com TCC</p>
+                <p class="text-sm font-semibold text-gray-800">{{ alunosComTccPercentual() }}%</p>
+              </div>
+              <div class="mt-2 h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div class="h-full rounded-full bg-indigo-500" [style.width.%]="alunosComTccPercentual()"></div>
+              </div>
+              <p class="mt-2 text-xs text-gray-500">{{ alunosSemTcc().length }} alunos sem TCC cadastrado</p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-gray-700">Professores vinculados</p>
+                <p class="text-sm font-semibold text-gray-800">{{ professoresVinculadosPercentual() }}%</p>
+              </div>
+              <div class="mt-2 h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div class="h-full rounded-full bg-teal-500" [style.width.%]="professoresVinculadosPercentual()"></div>
+              </div>
+              <p class="mt-2 text-xs text-gray-500">{{ professoresSemVinculo().length }} professores sem vínculo em TCCs</p>
+            </div>
+
+            <div class="rounded-lg bg-gray-50 p-4">
+              <p class="text-xs font-semibold uppercase text-gray-500">Status de atenção</p>
+              <p class="mt-2 text-2xl font-semibold text-gray-900">{{ tccsEmAberto() }}</p>
+              <p class="text-xs text-gray-500">TCCs em elaboração ou enviados</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-base font-semibold text-gray-800">Por Tipo</h2>
+          <div class="mt-4 space-y-4">
+            @for (item of tipoBreakdown(); track item.label) {
+              <ng-container [ngTemplateOutlet]="barRow" [ngTemplateOutletContext]="{ item: item }" />
+            }
+          </div>
+        </article>
+
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-base font-semibold text-gray-800">Por Idioma</h2>
+          <div class="mt-4 space-y-4">
+            @for (item of idiomaBreakdown(); track item.label) {
+              <ng-container [ngTemplateOutlet]="barRow" [ngTemplateOutletContext]="{ item: item }" />
+            }
+          </div>
+        </article>
+
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-base font-semibold text-gray-800">Semestres Recentes</h2>
+          <div class="mt-4 space-y-4">
+            @for (item of semestreBreakdown(); track item.label) {
+              <ng-container [ngTemplateOutlet]="barRow" [ngTemplateOutletContext]="{ item: item }" />
+            }
+          </div>
+        </article>
+      </section>
+
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-4">
+            <i class="pi pi-star text-yellow-500"></i>
+            <h2 class="text-base font-semibold text-gray-800">Top Orientadores</h2>
+          </div>
+          <div class="space-y-4">
+            @for (item of topOrientadores(); track item.nome; let i = $index) {
+              <div class="flex items-center gap-3">
+                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-xs font-semibold text-blue-700">{{ i + 1 }}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="truncate text-sm font-medium text-gray-700">{{ item.nome }}</p>
+                    <p class="text-sm font-semibold text-gray-800">{{ item.count }}</p>
+                  </div>
+                  <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div class="h-full rounded-full bg-blue-500" [style.width.%]="item.percent"></div>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <p class="text-sm text-gray-400">Nenhum dado disponível.</p>
+            }
+          </div>
+        </article>
+
+        <article class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-4">
+            <i class="pi pi-graduation-cap text-teal-500"></i>
+            <h2 class="text-base font-semibold text-gray-800">Top Cursos</h2>
+          </div>
+          <div class="space-y-4">
+            @for (item of topCursos(); track item.nome; let i = $index) {
+              <div class="flex items-center gap-3">
+                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-xs font-semibold text-teal-700">{{ i + 1 }}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="truncate text-sm font-medium text-gray-700">{{ item.nome }}</p>
+                    <p class="text-sm font-semibold text-gray-800">{{ item.count }}</p>
+                  </div>
+                  <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div class="h-full rounded-full bg-teal-500" [style.width.%]="item.percent"></div>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <p class="text-sm text-gray-400">Nenhum dado disponível.</p>
+            }
+          </div>
+        </article>
+      </section>
     </div>
 
-      <!-- Linha 1: Totais gerais -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        @for (card of totalCards(); track card.label) {
-          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" [class]="card.bgClass">
-              <i [class]="card.icon + ' text-xl ' + card.colorClass"></i>
-            </div>
-            <div>
-              <p class="text-sm text-gray-500">{{ card.label }}</p>
-              <p class="text-2xl font-bold text-gray-800">{{ card.value }}</p>
-            </div>
-          </div>
-        }
+    <ng-template #barRow let-item="item">
+      <div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="truncate text-sm font-medium text-gray-700">{{ item.label }}</span>
+          <span class="text-sm font-semibold text-gray-800">{{ item.value }}</span>
+        </div>
+        <div class="mt-2 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div class="h-full rounded-full" [class]="item.bgClass" [style.width.%]="item.percent"></div>
+        </div>
+        <p class="mt-1 text-xs text-gray-400">{{ item.percent | number:'1.0-0' }}%</p>
       </div>
-
-      <!-- Linha 2: Status dos TCCs -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        @for (card of statusCards(); track card.label) {
-          <div class="bg-white rounded-xl shadow-sm border-l-4 p-5" [class]="card.borderClass">
-            <div class="flex items-center justify-between">
-              <p class="text-sm font-medium text-gray-600">{{ card.label }}</p>
-              <div class="w-8 h-8 rounded-full flex items-center justify-center" [class]="card.bgClass">
-                <i [class]="card.icon + ' text-sm ' + card.textClass"></i>
-              </div>
-            </div>
-            <p class="text-3xl font-bold mt-2" [class]="card.textClass">{{ card.value }}</p>
-            <p class="text-xs text-gray-400 mt-1">
-              @if (estatisticas()?.total_geral) {
-                {{ ((card.value / (estatisticas()?.total_geral ?? 1)) * 100) | number:'1.0-0' }}% do total
-              }
-            </p>
-          </div>
-        }
-      </div>
-
-      <!-- Linha 3: Insights -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
-        <!-- Taxa de aprovação -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center gap-2 mb-3">
-            <i class="pi pi-check-circle text-green-500"></i>
-            <h3 class="font-semibold text-gray-700 text-sm">Taxa de Aprovação</h3>
-          </div>
-          <p class="text-4xl font-bold text-gray-800 mb-3">{{ taxaAprovacao() }}<span class="text-lg text-gray-400">%</span></p>
-          <p-progressbar [value]="taxaAprovacao()" styleClass="h-2" [showValue]="false" />
-          <p class="text-xs text-gray-400 mt-2">
-            {{ estatisticas()?.por_status?.['Aprovado'] ?? 0 }} aprovados de {{ estatisticas()?.total_geral ?? 0 }} TCCs
-          </p>
-        </div>
-
-        <!-- Professores sem vínculo -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center gap-2 mb-3">
-            <i class="pi pi-user-minus text-orange-500"></i>
-            <h3 class="font-semibold text-gray-700 text-sm">Professores sem Vínculo</h3>
-          </div>
-          <p class="text-4xl font-bold text-gray-800 mb-1">{{ professoresSemVinculo().length }}</p>
-          <p class="text-xs text-gray-400 mb-3">de {{ professores().length }} professores cadastrados</p>
-          @if (professoresSemVinculo().length > 0) {
-            <ul class="space-y-1 max-h-20 overflow-y-auto">
-              @for (prof of professoresSemVinculo().slice(0, 3); track prof.id) {
-                <li class="text-xs text-gray-500 flex items-center gap-1">
-                  <i class="pi pi-minus text-orange-300 text-xs"></i>
-                  {{ prof.nome }}
-                </li>
-              }
-              @if (professoresSemVinculo().length > 3) {
-                <li class="text-xs text-gray-400 italic">+ {{ professoresSemVinculo().length - 3 }} outros</li>
-              }
-            </ul>
-          } @else {
-            <p class="text-xs text-green-600 flex items-center gap-1">
-              <i class="pi pi-check text-xs"></i>
-              Todos os professores têm vínculos
-            </p>
-          }
-        </div>
-
-        <!-- Alunos sem TCC -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center gap-2 mb-3">
-            <i class="pi pi-exclamation-circle text-yellow-500"></i>
-            <h3 class="font-semibold text-gray-700 text-sm">Alunos sem TCC</h3>
-          </div>
-          <p class="text-4xl font-bold text-gray-800 mb-1">{{ alunosSemTcc().length }}</p>
-          <p class="text-xs text-gray-400 mb-3">de {{ alunos().length }} alunos cadastrados</p>
-          @if (alunosSemTcc().length > 0) {
-            <ul class="space-y-1 max-h-20 overflow-y-auto">
-              @for (aluno of alunosSemTcc().slice(0, 3); track aluno.id) {
-                <li class="text-xs text-gray-500 flex items-center gap-1">
-                  <i class="pi pi-minus text-yellow-400 text-xs"></i>
-                  {{ aluno.nome }}
-                </li>
-              }
-              @if (alunosSemTcc().length > 3) {
-                <li class="text-xs text-gray-400 italic">+ {{ alunosSemTcc().length - 3 }} outros</li>
-              }
-            </ul>
-          } @else {
-            <p class="text-xs text-green-600 flex items-center gap-1">
-              <i class="pi pi-check text-xs"></i>
-              Todos os alunos têm TCC cadastrado
-            </p>
-          }
-        </div>
-
-      </div>
-
-      <!-- Linha 4: Rankings -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <!-- Top 5 Orientadores -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <i class="pi pi-star text-blue-500"></i>
-            <h3 class="font-semibold text-gray-700">Top 5 Orientadores</h3>
-          </div>
-          @if (topOrientadores().length === 0) {
-            <p class="text-sm text-gray-400">Nenhum dado disponível.</p>
-          } @else {
-            <ul class="space-y-3">
-              @for (item of topOrientadores(); track item.nome; let i = $index) {
-                <li class="flex items-center gap-3">
-                  <span class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0"
-                    [class]="i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'">
-                    {{ i + 1 }}
-                  </span>
-                  <span class="flex-1 text-sm text-gray-700 truncate">{{ item.nome }}</span>
-                  <span class="text-sm font-semibold text-gray-500 flex items-center gap-1">
-                    {{ item.count }}
-                    <span class="text-xs text-gray-400 font-normal">TCC{{ item.count !== 1 ? 's' : '' }}</span>
-                  </span>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-
-        <!-- Top 5 Cursos -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <i class="pi pi-chart-bar text-purple-500"></i>
-            <h3 class="font-semibold text-gray-700">Top 5 Cursos</h3>
-          </div>
-          @if (topCursos().length === 0) {
-            <p class="text-sm text-gray-400">Nenhum dado disponível.</p>
-          } @else {
-            <ul class="space-y-3">
-              @for (item of topCursos(); track item.nome; let i = $index) {
-                <li class="flex items-center gap-3">
-                  <span class="w-6 h-6 bg-purple-50 text-purple-600 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0">
-                    {{ i + 1 }}
-                  </span>
-                  <span class="flex-1 text-sm text-gray-700 truncate">{{ item.nome }}</span>
-                  <div class="flex items-center gap-2">
-                    <div class="w-16 bg-gray-100 rounded-full h-1.5">
-                      <div class="bg-purple-400 h-1.5 rounded-full"
-                        [style.width.%]="topCursos()[0].count > 0 ? (item.count / topCursos()[0].count) * 100 : 0">
-                      </div>
-                    </div>
-                    <span class="text-sm font-semibold text-gray-500 w-4 text-right">{{ item.count }}</span>
-                  </div>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-
-      </div>
+    </ng-template>
   `,
 })
 export class DashboardPage implements OnInit {
@@ -221,10 +241,16 @@ export class DashboardPage implements OnInit {
   professores = signal<Professor[]>([]);
   totalCursos = signal(0);
 
-  taxaAprovacao = computed(() => {
-    const stats = this.estatisticas();
-    if (!stats || stats.total_geral === 0) return 0;
-    return Math.round(((stats.por_status['Aprovado'] ?? 0) / stats.total_geral) * 100);
+  taxaAprovacao = computed(() => this.percentual(this.estatisticas()?.por_status?.['Aprovado'] ?? 0));
+
+  tccsEmAberto = computed(() => {
+    const status = this.estatisticas()?.por_status ?? {};
+    return (status['Em Elaboração'] ?? 0) + (status['Enviado'] ?? 0);
+  });
+
+  alunosSemTcc = computed(() => {
+    const comTcc = new Set(this.tccs().map(t => t.aluno));
+    return this.alunos().filter(a => !comTcc.has(a.id));
   });
 
   professoresSemVinculo = computed(() => {
@@ -237,41 +263,75 @@ export class DashboardPage implements OnInit {
     return this.professores().filter(p => !vinculados.has(p.id));
   });
 
-  alunosSemTcc = computed(() => {
-    const comTcc = new Set(this.tccs().map(t => t.aluno));
-    return this.alunos().filter(a => !comTcc.has(a.id));
+  alunosComTccPercentual = computed(() => {
+    const total = this.alunos().length;
+    return total ? Math.round(((total - this.alunosSemTcc().length) / total) * 100) : 0;
   });
 
-  topOrientadores = computed((): RankItem[] =>
-    Object.entries(this.estatisticas()?.por_orientador ?? {})
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([nome, count]) => ({ nome, count }))
-  );
-
-  topCursos = computed((): RankItem[] =>
-    Object.entries(this.estatisticas()?.por_curso ?? {})
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([nome, count]) => ({ nome, count }))
-  );
+  professoresVinculadosPercentual = computed(() => {
+    const total = this.professores().length;
+    return total ? Math.round(((total - this.professoresSemVinculo().length) / total) * 100) : 0;
+  });
 
   totalCards = computed((): StatCard[] => [
-    { label: 'Total de TCCs', value: this.estatisticas()?.total_geral ?? 0, icon: 'pi pi-book', colorClass: 'text-blue-500', bgClass: 'bg-blue-50' },
-    { label: 'Alunos', value: this.alunos().length, icon: 'pi pi-users', colorClass: 'text-indigo-500', bgClass: 'bg-indigo-50' },
-    { label: 'Professores', value: this.professores().length, icon: 'pi pi-user', colorClass: 'text-violet-500', bgClass: 'bg-violet-50' },
-    { label: 'Cursos', value: this.totalCursos(), icon: 'pi pi-graduation-cap', colorClass: 'text-teal-500', bgClass: 'bg-teal-50' },
+    {
+      label: 'TCCs',
+      value: this.estatisticas()?.total_geral ?? 0,
+      icon: 'pi pi-book',
+      detail: `${this.tccsEmAberto()} em andamento`,
+      colorClass: 'text-blue-600',
+      bgClass: 'bg-blue-50',
+    },
+    {
+      label: 'Alunos',
+      value: this.alunos().length,
+      icon: 'pi pi-users',
+      detail: `${this.alunosSemTcc().length} sem TCC`,
+      colorClass: 'text-indigo-600',
+      bgClass: 'bg-indigo-50',
+    },
+    {
+      label: 'Professores',
+      value: this.professores().length,
+      icon: 'pi pi-user',
+      detail: `${this.professoresSemVinculo().length} sem vínculo`,
+      colorClass: 'text-orange-600',
+      bgClass: 'bg-orange-50',
+    },
+    {
+      label: 'Cursos',
+      value: this.totalCursos(),
+      icon: 'pi pi-graduation-cap',
+      detail: 'Cursos com alunos cadastrados',
+      colorClass: 'text-teal-600',
+      bgClass: 'bg-teal-50',
+    },
   ]);
 
-  statusCards = computed((): StatusCard[] => {
-    const s = this.estatisticas()?.por_status ?? {};
-    return [
-      { label: 'Em Elaboração', value: s['Em Elaboração'] ?? 0, borderClass: 'border-blue-400', textClass: 'text-blue-600', bgClass: 'bg-blue-50', icon: 'pi pi-pencil' },
-      { label: 'Enviados', value: s['Enviado'] ?? 0, borderClass: 'border-orange-400', textClass: 'text-orange-600', bgClass: 'bg-orange-50', icon: 'pi pi-send' },
-      { label: 'Aprovados', value: s['Aprovado'] ?? 0, borderClass: 'border-green-400', textClass: 'text-green-600', bgClass: 'bg-green-50', icon: 'pi pi-check' },
-      { label: 'Reprovados', value: s['Reprovado'] ?? 0, borderClass: 'border-red-400', textClass: 'text-red-600', bgClass: 'bg-red-50', icon: 'pi pi-times' },
-    ];
-  });
+  statusBreakdown = computed(() =>
+    this.breakdownFrom(this.estatisticas()?.por_status ?? {}, ['bg-blue-500', 'bg-orange-500', 'bg-green-500', 'bg-red-500'])
+  );
+
+  tipoBreakdown = computed(() =>
+    this.breakdownFrom(this.estatisticas()?.por_tipo ?? {}, ['bg-cyan-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500'])
+  );
+
+  idiomaBreakdown = computed(() =>
+    this.breakdownFrom(this.estatisticas()?.por_idioma ?? {}, ['bg-indigo-500', 'bg-teal-500'])
+  );
+
+  semestreBreakdown = computed(() =>
+    this.breakdownFrom(this.estatisticas()?.por_semestre ?? {}, ['bg-sky-500', 'bg-fuchsia-500', 'bg-lime-500', 'bg-rose-500'], 5)
+      .sort((a, b) => b.label.localeCompare(a.label))
+  );
+
+  topOrientadores = computed(() =>
+    this.rankingFrom(this.estatisticas()?.por_orientador ?? {}, 5)
+  );
+
+  topCursos = computed(() =>
+    this.rankingFrom(this.estatisticas()?.por_curso ?? {}, 5)
+  );
 
   ngOnInit(): void {
     forkJoin({
@@ -290,5 +350,35 @@ export class DashboardPage implements OnInit {
       },
       error: () => {},
     });
+  }
+
+  private rankingFrom(record: Record<string, number>, limit: number): RankItem[] {
+    const max = Math.max(...Object.values(record), 0);
+    return Object.entries(record)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .map(([nome, count]) => ({
+        nome,
+        count,
+        percent: max ? Math.round((count / max) * 100) : 0,
+      }));
+  }
+
+  private breakdownFrom(record: Record<string, number>, colors: string[], limit?: number): BreakdownItem[] {
+    return Object.entries(record)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit ?? Number.POSITIVE_INFINITY)
+      .map(([label, value], index) => ({
+        label,
+        value,
+        percent: this.percentual(value),
+        colorClass: colors[index % colors.length],
+        bgClass: colors[index % colors.length],
+      }));
+  }
+
+  private percentual(value: number): number {
+    const total = this.estatisticas()?.total_geral ?? 0;
+    return total ? Math.round((value / total) * 100) : 0;
   }
 }
